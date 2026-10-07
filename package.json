@@ -10,8 +10,19 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mantine/core": "^9.3.0",
+    "@mantine/dates": "^9.3.0",
+    "@mantine/form": "^9.3.0",
+    "@mantine/hooks": "^9.3.0",
+    "@tabler/icons-react": "^3.44.0",
+    "apexcharts": "^5.13.0",
+    "axios": "^1.17.0",
+    "dayjs": "^1.11.23",
+    "jwt-decode": "^4.0.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-apexcharts": "^2.1.0",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.16.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
