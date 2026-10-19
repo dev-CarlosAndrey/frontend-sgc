@@ -16,13 +16,20 @@ import { useForm } from "@mantine/form";
 import { IconUser, IconLock, IconAlertCircle } from "@tabler/icons-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { User } from "../../types/auth";
 
 export function LoginScreen() {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null); 
+  // Se a sessão anterior expirou, avisa o usuário uma única vez
+  const [errorMessage, setErrorMessage] = useState<string | null>(() =>
+    sessionStorage.getItem("@SGC:sessionExpired") ? "Sua sessão expirou. Entre novamente." : null
+  );
+
+  useEffect(() => {
+    sessionStorage.removeItem("@SGC:sessionExpired");
+  }, []);
 
   const form = useForm({
     initialValues: {
@@ -54,8 +61,8 @@ export function LoginScreen() {
       if (error.response) {
         if (error.response.status === 401 || error.response.status === 403) {
           setErrorMessage("Usuário ou senha incorretos.");
-        } else if (error.response.data?.message) {
-          setErrorMessage(error.response.data.message);
+        } else if (error.response.data?.detail) {
+          setErrorMessage(error.response.data.detail);
         } else {
           setErrorMessage("Falha ao processar o login. Tente novamente mais tarde.");
         }

@@ -1,6 +1,6 @@
-import { createContext, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import type { AuthContextData, AuthProviderProps, User } from "../types/auth";
-import { api } from "../services/api";
+import { api, SESSION_EXPIRED_EVENT } from "../services/api";
 
 export const AuthContext = createContext({} as AuthContextData);
 
@@ -42,6 +42,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem("@SGC:token");
     localStorage.removeItem("@SGC:user");
   };
+
+  // Token expirado/inválido: o interceptor do axios avisa e encerramos a sessão
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      sessionStorage.setItem("@SGC:sessionExpired", "1");
+      logout();
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ signed: !!user, user, login, loading, logout }}>
