@@ -31,6 +31,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { ServiceOrderModal } from './components/ServiceOrderModal';
+import { alertApiError } from '../../utils/apiError';
 
 type ServiceOrderStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CANCELLED';
 type ServiceOrderPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -77,6 +78,7 @@ interface ServiceOrder {
   sector: SectorInfo;
   solutionDetails?: string | null;
   closedAt?: string | null;
+  cost?: number | null;
   createdAt?: string;
 }
 
@@ -202,7 +204,7 @@ export function ServiceOrdersScreen() {
         if (selectedOrderId === id) setSelectedOrderId(null);
         fetchServiceOrders();
       } catch (error) {
-        console.error('Erro ao inativar ordem de serviço:', error);
+        alertApiError(error, 'Erro ao inativar ordem de serviço.');
       }
     }
   };
@@ -214,7 +216,7 @@ export function ServiceOrdersScreen() {
       await api.patch(`/service-orders/${selectedOrder.id}/assign-technician/${technicianToAssign}`);
       await fetchServiceOrders();
     } catch (error) {
-      console.error('Erro ao atribuir técnico:', error);
+      alertApiError(error, 'Erro ao atribuir técnico.');
     } finally {
       setSavingChanges(false);
     }
@@ -224,11 +226,15 @@ export function ServiceOrdersScreen() {
     if (!selectedOrder || !solutionDetails.trim()) return;
     try {
       setSavingChanges(true);
-      const costParam = resolutionCost !== '' ? `?cost=${resolutionCost}` : '';
-      await api.patch(`/service-orders/${selectedOrder.id}/resolve${costParam}`, solutionDetails);
+      // O backend recebe o laudo como String crua (@RequestBody String): enviar como texto puro
+      // evita que ele seja salvo com aspas e com "\n" literais no lugar das quebras de linha.
+      await api.patch(`/service-orders/${selectedOrder.id}/resolve`, solutionDetails, {
+        headers: { 'Content-Type': 'text/plain' },
+        params: resolutionCost !== '' ? { cost: resolutionCost } : undefined,
+      });
       await fetchServiceOrders();
     } catch (error) {
-      console.error('Erro ao finalizar ordem de serviço:', error);
+      alertApiError(error, 'Erro ao finalizar ordem de serviço.');
     } finally {
       setSavingChanges(false);
     }
@@ -242,7 +248,7 @@ export function ServiceOrdersScreen() {
       await api.patch(`/service-orders/${selectedOrder.id}/status`, { status: 'CANCELLED' });
       await fetchServiceOrders();
     } catch (error) {
-      console.error('Erro ao cancelar ordem de serviço:', error);
+      alertApiError(error, 'Erro ao cancelar ordem de serviço.');
     } finally {
       setSavingChanges(false);
     }
@@ -508,6 +514,8 @@ export function ServiceOrdersScreen() {
                       {selectedOrder.closedAt && (
                         <Text size="xs" c="dimmed" mt={4}>
                           Finalizada em {new Date(selectedOrder.closedAt).toLocaleString('pt-BR')}
+                          {selectedOrder.cost != null &&
+                            ` — Custo: ${selectedOrder.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
                         </Text>
                       )}
                     </div>
