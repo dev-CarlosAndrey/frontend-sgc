@@ -1,8 +1,9 @@
 // src/pages/Reports/index.tsx
 import { Alert, Paper, Stack, Tabs, Text, Title } from '@mantine/core';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { IconInfoCircle, IconLock } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 import {
   AssetsPanel,
   AuditPanel,
@@ -24,10 +25,13 @@ const extractList = (response: any) => {
 };
 
 export function ReportsScreen() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [companies, setCompanies] = useState<Option[]>([]);
   const [technicians, setTechnicians] = useState<Option[]>([]);
 
   useEffect(() => {
+    if (!isAdmin) return;
     api
       .get('/companies?size=1000')
       .then((res) =>
@@ -44,7 +48,16 @@ export function ReportsScreen() {
         )
       )
       .catch((err) => console.error('Erro ao buscar técnicos:', err));
-  }, []);
+  }, [isAdmin]);
+
+  // Relatórios são exclusivos de ADMIN no backend (contrato, seção 4)
+  if (!isAdmin) {
+    return (
+      <Alert variant="light" color="orange" radius="md" icon={<IconLock size={18} />} title="Acesso restrito">
+        A Central de Relatórios é exclusiva para usuários com perfil ADMIN.
+      </Alert>
+    );
+  }
 
   return (
     <Stack gap="md">

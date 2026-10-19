@@ -103,7 +103,7 @@ export function DashboardScreen() {
 
       const [dashRes, moveRes] = await Promise.all([
         api.get(`/dashboard${params}`),
-        api.get('/asset-movements?page=0&size=5'),
+        api.get('/asset-movements?page=0&size=5&sort=movementDate,desc'),
       ]);
 
       if (dashRes.data) {

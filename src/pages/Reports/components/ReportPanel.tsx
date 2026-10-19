@@ -3,6 +3,7 @@ import { IconDownload, IconFileTypePdf } from '@tabler/icons-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../../services/api';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 export function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -92,7 +93,7 @@ export function ReportPanel<T>({ path, query, exportName, filters, validate, chi
       setData(res.data);
     } catch (err) {
       console.error('Erro ao gerar relatório:', err);
-      setError('Não foi possível gerar o relatório. Verifique os filtros e tente novamente.');
+      setError(getApiErrorMessage(err, 'Não foi possível gerar o relatório. Verifique os filtros e tente novamente.'));
     } finally {
       setLoading(false);
     }
