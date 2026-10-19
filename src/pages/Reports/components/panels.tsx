@@ -626,3 +626,166 @@ export function AuditPanel() {
     </ReportPanel>
   );
 }
+
+// ---------- OS por canal de abertura ----------
+
+const CHANNEL_LABELS: Record<string, string> = {
+  PANEL: 'Painel',
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'E-mail',
+};
+
+const formatPercent = (value: number | null | undefined) => (value == null ? '-' : `${value.toLocaleString('pt-BR')}%`);
+
+interface ChannelsReport {
+  total: number;
+  channels: {
+    channel: string;
+    total: number;
+    sharePercent: number | null;
+    resolved: number;
+    cancelled: number;
+    pending: number;
+    avgResolutionHours: number | null;
+  }[];
+  months: { month: string; panel: number; whatsapp: number; whatsappPercent: number | null }[];
+}
+
+export function ChannelsPanel({ companies }: CommonProps) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
+  return (
+    <ReportPanel<ChannelsReport>
+      path="/reports/service-orders/channels"
+      query={buildQuery({ from, to, companyId })}
+      exportName="os-por-canal.csv"
+      validate={() => invalidRange(from, to)}
+      filters={
+        <>
+          <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
+          <CompanySelect companies={companies} value={companyId} onChange={setCompanyId} />
+        </>
+      }
+    >
+      {(data) => {
+        const byChannel = (channel: string) => data.channels.find((c) => c.channel === channel);
+        return (
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              Período aplicado à data de abertura da OS. Pendentes = abertas + em andamento; o tempo médio considera só as finalizadas.
+            </Text>
+            <StatGrid>
+              <Stat label="Ordens de serviço" value={data.total} />
+              <Stat label="Pelo painel" value={formatPercent(byChannel('PANEL')?.sharePercent)} />
+              <Stat label="Pelo WhatsApp" value={formatPercent(byChannel('WHATSAPP')?.sharePercent)} />
+            </StatGrid>
+            <DataTable
+              headers={['Canal', 'OS', 'Participação', 'Finalizadas', 'Canceladas', 'Pendentes', 'Tempo médio de resolução']}
+              rows={data.channels.map((c) => [
+                <Badge key={c.channel} variant="light" color={c.channel === 'WHATSAPP' ? 'green' : 'blue'}>
+                  {labelOf(CHANNEL_LABELS, c.channel)}
+                </Badge>,
+                c.total,
+                formatPercent(c.sharePercent),
+                c.resolved,
+                c.cancelled,
+                c.pending,
+                formatHours(c.avgResolutionHours),
+              ])}
+            />
+            <DataTable
+              headers={['Mês', 'Painel', 'WhatsApp', '% WhatsApp']}
+              rows={data.months.map((m) => [formatMonth(m.month), m.panel, m.whatsapp, formatPercent(m.whatsappPercent)])}
+              emptyText="Nenhuma OS aberta no período."
+            />
+          </Stack>
+        );
+      }}
+    </ReportPanel>
+  );
+}
+
+// ---------- Entrega das notificações ----------
+
+const OUTCOME_LABELS: Record<string, string> = {
+  WHATSAPP_FIRST_ATTEMPT: 'WhatsApp na 1ª tentativa',
+  WHATSAPP_AFTER_RETRY: 'WhatsApp após retentativa',
+  EMAIL_FALLBACK: 'E-mail após falha no WhatsApp',
+  EMAIL_ONLY: 'Só e-mail (WhatsApp não se aplicava)',
+  NOT_DELIVERED: 'Não entregue',
+};
+
+interface NotificationsReport {
+  totalAttempts: number;
+  totalNotifications: number;
+  delivered: number;
+  deliveryRatePercent: number | null;
+  fallbackRatePercent: number | null;
+  channels: { channel: string; attempts: number; sent: number; failed: number; successRatePercent: number | null }[];
+  byOutcome: { key: string; total: number }[];
+  topErrors: { key: string; total: number }[];
+}
+
+export function NotificationsPanel({ companies }: CommonProps) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
+  return (
+    <ReportPanel<NotificationsReport>
+      path="/reports/notifications"
+      query={buildQuery({ from, to, companyId })}
+      exportName="entrega-notificacoes.csv"
+      validate={() => invalidRange(from, to)}
+      filters={
+        <>
+          <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
+          <CompanySelect companies={companies} value={companyId} onChange={setCompanyId} />
+        </>
+      }
+    >
+      {(data) => (
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Notificação = um destinatário em um evento da OS. Tentativa = cada envio em um canal (o WhatsApp tem retentativas
+            e, se falhar, o sistema tenta por e-mail). Período aplicado à data de cada tentativa.
+          </Text>
+          <StatGrid>
+            <Stat label="Notificações" value={data.totalNotifications} />
+            <Stat label="Entregues" value={`${data.delivered} (${formatPercent(data.deliveryRatePercent)})`} />
+            <Stat label="Tentativas de envio" value={data.totalAttempts} />
+            <Stat label="Caíram para e-mail" value={formatPercent(data.fallbackRatePercent)} />
+          </StatGrid>
+          <DataTable
+            headers={['Canal', 'Tentativas', 'Enviadas', 'Falharam', 'Taxa de sucesso']}
+            rows={data.channels.map((c) => [
+              labelOf(CHANNEL_LABELS, c.channel),
+              c.attempts,
+              c.sent,
+              c.failed,
+              formatPercent(c.successRatePercent),
+            ])}
+          />
+          <DataTable
+            headers={['Como a notificação foi entregue', 'Notificações']}
+            rows={data.byOutcome.map((o) => [
+              o.key === 'NOT_DELIVERED' && o.total > 0 ? (
+                <Text key={o.key} size="sm" c="red" fw={600}>{labelOf(OUTCOME_LABELS, o.key)}</Text>
+              ) : (
+                labelOf(OUTCOME_LABELS, o.key)
+              ),
+              o.total,
+            ])}
+          />
+          <DataTable
+            headers={['Erros mais frequentes', 'Ocorrências']}
+            rows={data.topErrors.map((e) => [<Text key={e.key} size="sm" style={{ wordBreak: 'break-word' }}>{e.key}</Text>, e.total])}
+            emptyText="Nenhum erro de envio no período."
+          />
+        </Stack>
+      )}
+    </ReportPanel>
+  );
+}

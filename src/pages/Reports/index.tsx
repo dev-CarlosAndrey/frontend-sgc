@@ -7,10 +7,12 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   AssetsPanel,
   AuditPanel,
+  ChannelsPanel,
   CriticalAssetsPanel,
   MaintenanceCostPanel,
   MonthlyPanel,
   MovementsPanel,
+  NotificationsPanel,
   PatrimonyPanel,
   ServiceOrdersPanel,
   StageTimesPanel,
@@ -60,7 +62,7 @@ export function ReportsScreen() {
       <div>
         <Title order={2} fw={700} style={{ fontSize: '24px' }}>Central de Relatórios</Title>
         <Text size="sm" c="dimmed" mt={4}>
-          Consulte indicadores de bens, ordens de serviço, movimentações e auditoria, e exporte em CSV ou PDF
+          Consulte indicadores de bens, ordens de serviço, movimentações, auditoria e notificações, e exporte em CSV ou PDF
         </Text>
       </div>
 
@@ -73,9 +75,11 @@ export function ReportsScreen() {
             <Tabs.Tab value="orders">Ordens de serviço</Tabs.Tab>
             <Tabs.Tab value="monthly">Evolução mensal</Tabs.Tab>
             <Tabs.Tab value="stages">Tempo por etapa</Tabs.Tab>
+            <Tabs.Tab value="channels">Canais de abertura</Tabs.Tab>
             <Tabs.Tab value="cost">Custo de manutenção</Tabs.Tab>
             <Tabs.Tab value="movements">Movimentações</Tabs.Tab>
             <Tabs.Tab value="audit">Auditoria</Tabs.Tab>
+            <Tabs.Tab value="notifications">Notificações</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="assets"><AssetsPanel companies={companies} /></Tabs.Panel>
@@ -84,9 +88,11 @@ export function ReportsScreen() {
           <Tabs.Panel value="orders"><ServiceOrdersPanel companies={companies} technicians={technicians} /></Tabs.Panel>
           <Tabs.Panel value="monthly"><MonthlyPanel companies={companies} /></Tabs.Panel>
           <Tabs.Panel value="stages"><StageTimesPanel companies={companies} /></Tabs.Panel>
+          <Tabs.Panel value="channels"><ChannelsPanel companies={companies} /></Tabs.Panel>
           <Tabs.Panel value="cost"><MaintenanceCostPanel companies={companies} /></Tabs.Panel>
           <Tabs.Panel value="movements"><MovementsPanel companies={companies} /></Tabs.Panel>
           <Tabs.Panel value="audit"><AuditPanel /></Tabs.Panel>
+          <Tabs.Panel value="notifications"><NotificationsPanel companies={companies} /></Tabs.Panel>
         </Tabs>
       </Paper>
 
