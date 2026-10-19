@@ -24,6 +24,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { ProductModal } from './components/ProductModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface Product {
   id: number;
@@ -100,7 +101,7 @@ export function ProductsScreen() {
         await api.delete(`/products/${id}`);
         fetchProducts();
       } catch (error) {
-        console.error('Erro ao inativar produto:', error);
+        alertApiError(error, 'Erro ao inativar produto.');
       }
     }
   };

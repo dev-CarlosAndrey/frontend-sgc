@@ -11,6 +11,7 @@ import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface UserOption {
   id: number;
@@ -114,7 +115,7 @@ export function ServiceOrderModal({ opened, onClose, onSuccess }: ServiceOrderMo
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao abrir ordem de serviço:', error);
+      showFormApiError(form, error, 'Erro ao abrir ordem de serviço.');
     } finally {
       setSubmitting(false);
     }

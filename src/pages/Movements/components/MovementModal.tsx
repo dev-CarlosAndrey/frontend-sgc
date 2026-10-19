@@ -11,6 +11,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface AssetOption {
   id: number;
@@ -105,9 +106,8 @@ export function MovementModal({ opened, onClose, onSuccess }: MovementModalProps
 
       onSuccess();
       onClose();
-    } catch (error: any) {
-      console.error('Erro ao realizar movimentação:', error);
-      alert(error?.response?.data?.message || 'Erro ao realizar movimentação.');
+    } catch (error) {
+      showFormApiError(form, error, 'Erro ao realizar movimentação.');
     } finally {
       setSubmitting(false);
     }

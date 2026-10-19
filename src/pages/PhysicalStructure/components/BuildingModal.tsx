@@ -2,6 +2,7 @@ import { Modal, TextInput, Group, Button, Text, Select, Stack } from '@mantine/c
 import { useForm } from '@mantine/form';
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface CompanyOption {
   id: number;
@@ -81,8 +82,7 @@ export function BuildingModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar prédio:', error);
-      alert('Erro ao salvar prédio. Verifique os dados prestados.');
+      showFormApiError(form, error, 'Erro ao salvar prédio. Verifique os dados informados.');
     } finally {
       setLoading(false);
     }

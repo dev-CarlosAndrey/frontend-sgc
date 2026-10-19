@@ -24,6 +24,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { SectorModal } from './components/SectorModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface BuildingInfo {
   id: number;
@@ -101,7 +102,7 @@ export function SectorsScreen() {
         await api.delete(`/sectors/${id}`);
         fetchSectors();
       } catch (error) {
-        console.error('Erro ao inativar setor:', error);
+        alertApiError(error, 'Erro ao inativar setor.');
       }
     }
   };

@@ -12,6 +12,7 @@ import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../../services/api';
 import { DateInputBR } from '../../../components/DateInputBR';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface SectorOption {
   id: number;
@@ -182,7 +183,7 @@ export function AssetModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar patrimônio:', error);
+      showFormApiError(form, error, 'Erro ao salvar patrimônio.');
     } finally {
       setSubmitting(false);
     }

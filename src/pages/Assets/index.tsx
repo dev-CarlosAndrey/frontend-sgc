@@ -29,6 +29,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { AssetModal } from './components/AssetModal';
+import { alertApiError } from '../../utils/apiError';
 
 const API_ORIGIN = 'http://localhost:8080';
 const resolveAssetUrl = (url?: string | null) => {
@@ -159,7 +160,7 @@ export function AssetsScreen() {
         await api.delete(`/assets/${id}`);
         fetchAssets();
       } catch (error) {
-        console.error('Erro ao inativar ativo:', error);
+        alertApiError(error, 'Erro ao inativar ativo.');
       }
     }
   };
@@ -193,8 +194,7 @@ export function AssetsScreen() {
       await api.post(`/assets/${uploadingAssetId}/photo`, formData);
       await fetchAssets();
     } catch (error) {
-      console.error('Erro ao enviar foto do bem:', error);
-      alert('Erro ao enviar a foto. Tente novamente.');
+      alertApiError(error, 'Erro ao enviar a foto. Tente novamente.');
     } finally {
       setUploadingAssetId(null);
     }

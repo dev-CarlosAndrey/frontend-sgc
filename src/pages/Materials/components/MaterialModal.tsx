@@ -8,6 +8,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface MaterialToEdit {
   id: number;
@@ -70,7 +71,7 @@ export function MaterialModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar material:', error);
+      showFormApiError(form, error, 'Erro ao salvar material.');
     } finally {
       setSubmitting(false);
     }

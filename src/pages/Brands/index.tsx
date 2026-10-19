@@ -20,6 +20,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { BrandModal } from './components/BrandModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface Brand {
   id: number;
@@ -77,7 +78,7 @@ export function BrandsScreen() {
         await api.delete(`/brands/${id}`);
         fetchBrands();
       } catch (error) {
-        console.error('Erro ao inativar marca:', error);
+        alertApiError(error, 'Erro ao inativar marca.');
       }
     }
   };

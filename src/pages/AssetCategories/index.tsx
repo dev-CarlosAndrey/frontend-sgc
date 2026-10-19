@@ -24,6 +24,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { AssetCategoryModal } from './components/AssetCategoryModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface AssetCategory {
   id: number;
@@ -93,7 +94,7 @@ export function AssetCategoriesScreen() {
         await api.delete(`/asset-categories/${id}`);
         fetchCategories();
       } catch (error) {
-        console.error('Erro ao inativar categoria:', error);
+        alertApiError(error, 'Erro ao inativar categoria.');
       }
     }
   };

@@ -24,6 +24,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { MaterialModal } from './components/MaterialModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface Material {
   id: number;
@@ -92,7 +93,7 @@ export function MaterialsScreen() {
         await api.delete(`/materials/${id}`);
         fetchMaterials();
       } catch (error) {
-        console.error('Erro ao inativar material:', error);
+        alertApiError(error, 'Erro ao inativar material.');
       }
     }
   };

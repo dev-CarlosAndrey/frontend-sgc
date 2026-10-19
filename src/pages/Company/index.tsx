@@ -29,6 +29,7 @@ import { api } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import { CompanyModal } from "./components/CompanyModal";
 import styles from "./Company.module.css";
+import { alertApiError } from '../../utils/apiError';
 
 // URL base do backend (sem o prefixo /api/v1) usada para resolver caminhos relativos de arquivos estáticos (ex.: logos)
 const API_ORIGIN = "http://localhost:8080";
@@ -146,8 +147,7 @@ export function CompanyScreen() {
       await fetchCompanies(currentCompanyId);
       alert("Alterações da instituição salvas com sucesso!");
     } catch (error) {
-      console.error("Erro ao atualizar empresa:", error);
-      alert("Erro ao salvar as alterações da empresa.");
+      alertApiError(error, "Erro ao salvar as alterações da empresa.");
     } finally {
       setSaving(false);
     }
@@ -182,8 +182,7 @@ export function CompanyScreen() {
       setLogoUrl(response.data.logoUrl ?? response.data.url ?? null);
       await fetchCompanies(currentCompanyId);
     } catch (error) {
-      console.error("Erro ao enviar a logo:", error);
-      alert("Erro ao enviar a logo. Tente novamente.");
+      alertApiError(error, "Erro ao enviar a logo. Tente novamente.");
     } finally {
       setUploadingLogo(false);
     }

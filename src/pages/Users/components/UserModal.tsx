@@ -11,6 +11,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 type Role = 'ADMIN' | 'TECHNICIAN' | 'USER';
 
@@ -90,12 +91,8 @@ export function UserModal({
 
       onSuccess();
       onClose();
-    } catch (error: any) {
-      if (error.response?.data?.detail) {
-        form.setFieldError('email', error.response.data.detail);
-      } else {
-        console.error('Erro ao salvar usuário:', error);
-      }
+    } catch (error) {
+      showFormApiError(form, error, 'Erro ao salvar usuário.');
     } finally {
       setSubmitting(false);
     }

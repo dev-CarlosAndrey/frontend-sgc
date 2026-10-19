@@ -27,6 +27,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { EmployeeModal } from './components/EmployeeModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface Employee {
   id: number;
@@ -150,7 +151,7 @@ export function EmployeesScreen() {
         await api.delete(`/employees/${id}`);
         fetchData();
       } catch (error) {
-        console.error('Erro ao inativar funcionário:', error);
+        alertApiError(error, 'Erro ao inativar funcionário.');
       }
     }
   };

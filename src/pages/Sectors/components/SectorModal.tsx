@@ -9,6 +9,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface EmployeeOption {
   id: number;
@@ -110,7 +111,7 @@ export function SectorModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar setor:', error);
+      showFormApiError(form, error, 'Erro ao salvar setor.');
     } finally {
       setSubmitting(false);
     }

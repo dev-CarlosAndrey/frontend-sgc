@@ -25,6 +25,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { UserModal } from './components/UserModal';
+import { alertApiError } from '../../utils/apiError';
 
 type Role = 'ADMIN' | 'TECHNICIAN' | 'USER';
 
@@ -113,7 +114,7 @@ export function UsersScreen() {
         await api.delete(`/users/${id}`);
         fetchUsers();
       } catch (error) {
-        console.error('Erro ao inativar usuário:', error);
+        alertApiError(error, 'Erro ao inativar usuário.');
       }
     }
   };

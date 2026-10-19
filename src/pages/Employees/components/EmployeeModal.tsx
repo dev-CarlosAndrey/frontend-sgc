@@ -10,6 +10,7 @@ import { useForm } from '@mantine/form';
 import { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
 import { DateInputBR } from '../../../components/DateInputBR';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface CompanyOption {
   id: number;
@@ -117,7 +118,7 @@ export function EmployeeModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar funcionário:', error);
+      showFormApiError(form, error, 'Erro ao salvar funcionário.');
     } finally {
       setSubmitting(false);
     }

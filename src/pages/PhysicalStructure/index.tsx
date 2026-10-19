@@ -24,6 +24,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { BuildingModal } from './components/BuildingModal';
+import { alertApiError } from '../../utils/apiError';
 
 interface Company {
   id: number;
@@ -115,7 +116,7 @@ export function PhysicalStructureScreen() {
         await api.delete(`/buildings/${id}`);
         fetchBuildings();
       } catch (error) {
-        console.error('Erro ao excluir prédio:', error);
+        alertApiError(error, 'Erro ao excluir prédio.');
       }
     }
   };

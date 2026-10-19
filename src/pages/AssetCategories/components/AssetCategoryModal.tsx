@@ -10,6 +10,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface AssetCategoryToEdit {
   id: number;
@@ -75,7 +76,7 @@ export function AssetCategoryModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar categoria de bem:', error);
+      showFormApiError(form, error, 'Erro ao salvar categoria de bem.');
     } finally {
       setSubmitting(false);
     }

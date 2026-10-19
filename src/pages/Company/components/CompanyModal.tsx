@@ -2,6 +2,7 @@ import { Modal, TextInput, Group, Button, Text, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useState } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface CompanyModalProps {
   opened: boolean;
@@ -38,12 +39,8 @@ export function CompanyModal({ opened, onClose, onSuccess }: CompanyModalProps) 
       form.reset();
       onSuccess(response.data.id);
       onClose();
-    } catch (error: any) {
-      if (error.response?.data?.message) {
-        form.setFieldError('cnpj', error.response.data.message);
-      } else {
-        form.setFieldError('companyName', 'Erro ao cadastrar empresa. Tente novamente.');
-      }
+    } catch (error) {
+      showFormApiError(form, error, 'Erro ao cadastrar empresa. Tente novamente.');
     } finally {
       setLoading(false);
     }

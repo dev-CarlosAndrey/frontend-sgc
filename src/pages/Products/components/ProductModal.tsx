@@ -10,6 +10,7 @@ import {
 import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface BrandOption {
   id: number;
@@ -119,7 +120,7 @@ export function ProductModal({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Erro ao salvar produto:', error);
+      showFormApiError(form, error, 'Erro ao salvar produto.');
     } finally {
       setSubmitting(false);
     }

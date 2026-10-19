@@ -2,6 +2,7 @@ import { Modal, TextInput, Group, Button, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, useState } from 'react';
 import { api } from '../../../services/api';
+import { showFormApiError } from '../../../utils/apiError';
 
 interface BrandToEdit {
   id: number;
@@ -48,12 +49,8 @@ export function BrandModal({ opened, onClose, onSuccess, brandToEdit }: BrandMod
       form.reset();
       onSuccess(); // Recarrega a tabela
       onClose();   // Fecha o modal
-    } catch (error: any) {
-      if (error.response?.data?.message) {
-        form.setFieldError('name', error.response.data.message);
-      } else {
-        form.setFieldError('name', 'Erro ao salvar marca. Verifique a conexão com a API.');
-      }
+    } catch (error) {
+      showFormApiError(form, error, 'Erro ao salvar marca.');
     } finally {
       setLoading(false);
     }
