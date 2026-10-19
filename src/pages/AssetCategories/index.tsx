@@ -11,15 +11,15 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import {
   IconPlus,
   IconSearch,
   IconEdit,
   IconTrash
 } from '@tabler/icons-react';
-import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -46,32 +46,9 @@ export function AssetCategoriesScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [categories, setCategories] = useState<AssetCategory[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryToEdit, setCategoryToEdit] = useState<AssetCategoryToEdit | null>(null);
 
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchCategories = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/asset-categories?size=1000');
-      setCategories(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar categorias de bens:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
 
   const handleCreateNew = () => {
     setCategoryToEdit(null);
@@ -92,7 +69,7 @@ export function AssetCategoriesScreen() {
     if (confirm('Deseja realmente inativar esta categoria?')) {
       try {
         await api.delete(`/asset-categories/${id}`);
-        fetchCategories();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar categoria.');
       }
@@ -101,14 +78,12 @@ export function AssetCategoriesScreen() {
 
   const formatCode = (id: number) => `CAT-${String(id).padStart(3, '0')}`;
 
-  const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.description && c.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-  const pagination = usePagination(filteredCategories);
+  // Paginação e busca feitas no backend
+  const pagination = useServerPagination<AssetCategory>('/asset-categories', { q: debouncedSearch }, { sort: 'name,asc' });
 
-  if (loading && categories.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -122,7 +97,7 @@ export function AssetCategoriesScreen() {
         <AssetCategoryModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchCategories}
+          onSuccess={pagination.reload}
           categoryToEdit={categoryToEdit}
         />
       )}
@@ -167,8 +142,8 @@ export function AssetCategoriesScreen() {
           </Table.Thead>
 
           <Table.Tbody>
-            {filteredCategories.length > 0 ? (
-              pagination.pageItems.map((category) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((category) => (
                 <Table.Tr key={category.id}>
                   <Table.Td c="dimmed" fw={500} style={{ fontSize: '13px' }}>
                     {formatCode(category.id)}
@@ -220,7 +195,7 @@ export function AssetCategoriesScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

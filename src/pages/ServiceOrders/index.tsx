@@ -17,7 +17,7 @@ import {
   Loader,
   Center,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import {
   IconPlus,
   IconSearch,
@@ -26,7 +26,7 @@ import {
   IconBrandWhatsapp,
 } from '@tabler/icons-react';
 import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -116,15 +116,15 @@ export function ServiceOrdersScreen() {
   const canResolve = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [technicians, setTechnicians] = useState<UserInfo[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [channelFilter, setChannelFilter] = useState<string | null>(null);
 
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  // A OS selecionada fica em estado próprio: continua aberta no painel mesmo trocando de página
+  const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
+  const selectedOrderId = selectedOrder?.id ?? null;
   const [technicianToAssign, setTechnicianToAssign] = useState<string | null>(null);
   const [solutionDetails, setSolutionDetails] = useState('');
   const [resolutionCost, setResolutionCost] = useState<number | string>('');
@@ -137,34 +137,33 @@ export function ServiceOrdersScreen() {
     return [];
   };
 
-  const fetchServiceOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/service-orders?size=1000');
-      setServiceOrders(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar ordens de serviço:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const fetchTechnicians = useCallback(async () => {
     try {
-      const response = await api.get('/users?size=1000');
-      const allUsers: UserInfo[] = extractData(response);
-      setTechnicians(allUsers.filter((u) => u.role === 'TECHNICIAN'));
+      const response = await api.get('/users', { params: { role: 'TECHNICIAN', size: 1000, sort: 'name,asc' } });
+      setTechnicians(extractData(response));
     } catch (error) {
       console.error('Erro ao buscar técnicos:', error);
     }
   }, []);
 
   useEffect(() => {
-    fetchServiceOrders();
     fetchTechnicians();
-  }, [fetchServiceOrders, fetchTechnicians]);
+  }, [fetchTechnicians]);
 
-  const selectedOrder = serviceOrders.find((order) => order.id === selectedOrderId) || null;
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
+
+  // Paginação, busca e filtros feitos no backend (mais recentes primeiro)
+  const pagination = useServerPagination<ServiceOrder>(
+    '/service-orders',
+    { q: debouncedSearch, status: statusFilter, channel: channelFilter },
+    { sort: 'createdAt,desc' }
+  );
+
+  // Ações da OS devolvem a OS atualizada: atualiza o painel e recarrega a página da tabela
+  const applyUpdatedOrder = (updated: ServiceOrder) => {
+    setSelectedOrder(updated);
+    pagination.reload();
+  };
 
   useEffect(() => {
     if (selectedOrder) {
@@ -194,15 +193,15 @@ export function ServiceOrdersScreen() {
   const statusHistory = history && history.orderId === selectedOrderId ? history.entries : [];
 
   const handleSelectOrder = (order: ServiceOrder) => {
-    setSelectedOrderId(order.id === selectedOrderId ? null : order.id);
+    setSelectedOrder(order.id === selectedOrderId ? null : order);
   };
 
   const handleDelete = async (id: number) => {
     if (confirm('Deseja realmente inativar esta ordem de serviço?')) {
       try {
         await api.delete(`/service-orders/${id}`);
-        if (selectedOrderId === id) setSelectedOrderId(null);
-        fetchServiceOrders();
+        if (selectedOrderId === id) setSelectedOrder(null);
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar ordem de serviço.');
       }
@@ -213,8 +212,8 @@ export function ServiceOrdersScreen() {
     if (!selectedOrder || !technicianToAssign) return;
     try {
       setSavingChanges(true);
-      await api.patch(`/service-orders/${selectedOrder.id}/assign-technician/${technicianToAssign}`);
-      await fetchServiceOrders();
+      const response = await api.patch(`/service-orders/${selectedOrder.id}/assign-technician/${technicianToAssign}`);
+      applyUpdatedOrder(response.data);
     } catch (error) {
       alertApiError(error, 'Erro ao atribuir técnico.');
     } finally {
@@ -228,11 +227,11 @@ export function ServiceOrdersScreen() {
       setSavingChanges(true);
       // O backend recebe o laudo como String crua (@RequestBody String): enviar como texto puro
       // evita que ele seja salvo com aspas e com "\n" literais no lugar das quebras de linha.
-      await api.patch(`/service-orders/${selectedOrder.id}/resolve`, solutionDetails, {
+      const response = await api.patch(`/service-orders/${selectedOrder.id}/resolve`, solutionDetails, {
         headers: { 'Content-Type': 'text/plain' },
         params: resolutionCost !== '' ? { cost: resolutionCost } : undefined,
       });
-      await fetchServiceOrders();
+      applyUpdatedOrder(response.data);
     } catch (error) {
       alertApiError(error, 'Erro ao finalizar ordem de serviço.');
     } finally {
@@ -245,8 +244,8 @@ export function ServiceOrdersScreen() {
     if (!confirm('Deseja realmente cancelar esta ordem de serviço? Essa ação não pode ser desfeita.')) return;
     try {
       setSavingChanges(true);
-      await api.patch(`/service-orders/${selectedOrder.id}/status`, { status: 'CANCELLED' });
-      await fetchServiceOrders();
+      const response = await api.patch(`/service-orders/${selectedOrder.id}/status`, { status: 'CANCELLED' });
+      applyUpdatedOrder(response.data);
     } catch (error) {
       alertApiError(error, 'Erro ao cancelar ordem de serviço.');
     } finally {
@@ -254,21 +253,7 @@ export function ServiceOrdersScreen() {
     }
   };
 
-  const filteredOrders = serviceOrders.filter((order) => {
-    const matchesSearch =
-      order.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.requester?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.sector?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter ? order.status === statusFilter : true;
-    const matchesChannel = channelFilter ? order.channel === channelFilter : true;
-
-    return matchesSearch && matchesStatus && matchesChannel;
-  });
-
-  const pagination = usePagination(filteredOrders);
-
-  if (loading && serviceOrders.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -281,7 +266,7 @@ export function ServiceOrdersScreen() {
       <ServiceOrderModal
         opened={modalOpened}
         onClose={closeModal}
-        onSuccess={fetchServiceOrders}
+        onSuccess={pagination.reload}
       />
 
       {/* 1. CABEÇALHO */}
@@ -350,8 +335,8 @@ export function ServiceOrdersScreen() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {filteredOrders.length > 0 ? (
-              pagination.pageItems.map((order) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((order) => (
                 <Table.Tr
                   key={order.id}
                   style={{ cursor: 'pointer' }}
@@ -405,7 +390,7 @@ export function ServiceOrdersScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
 
       {/* 4. SEÇÃO DE DETALHAMENTO DA OS SELECIONADA */}

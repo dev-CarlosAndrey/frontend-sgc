@@ -11,15 +11,15 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { 
   IconPlus, 
   IconSearch, 
   IconEdit, 
   IconTrash 
 } from '@tabler/icons-react';
-import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -52,32 +52,9 @@ export function ProductsScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [productToEdit, setProductToEdit] = useState<ProductToEdit | null>(null);
 
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/products?size=1000');
-      setProducts(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar produtos:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
 
   const handleCreateNew = () => {
     setProductToEdit(null);
@@ -99,7 +76,7 @@ export function ProductsScreen() {
     if (confirm('Deseja realmente inativar este produto/modelo?')) {
       try {
         await api.delete(`/products/${id}`);
-        fetchProducts();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar produto.');
       }
@@ -110,17 +87,12 @@ export function ProductsScreen() {
     return `PRD-${String(id).padStart(3, '0')}`;
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.brandName && p.brandName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.materialName && p.materialName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    formatCode(p.id).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-  const pagination = usePagination(filteredProducts);
+  // Paginação e busca feitas no backend
+  const pagination = useServerPagination<Product>('/products', { q: debouncedSearch }, { sort: 'name,asc' });
 
-  if (loading && products.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -134,7 +106,7 @@ export function ProductsScreen() {
         <ProductModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchProducts}
+          onSuccess={pagination.reload}
           productToEdit={productToEdit}
         />
       )}
@@ -183,8 +155,8 @@ export function ProductsScreen() {
           </Table.Thead>
           
           <Table.Tbody>
-            {filteredProducts.length > 0 ? (
-              pagination.pageItems.map((product) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((product) => (
                 <Table.Tr key={product.id}>
                   {/* Código PRD-00X */}
                   <Table.Td c="dimmed" fw={500} style={{ fontSize: '13px' }}>
@@ -248,7 +220,7 @@ export function ProductsScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

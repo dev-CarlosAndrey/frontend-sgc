@@ -13,7 +13,7 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import {
   IconPlus,
   IconSearch,
@@ -23,13 +23,14 @@ import {
   IconQrcode,
   IconCamera
 } from '@tabler/icons-react';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState, useRef } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { AssetModal } from './components/AssetModal';
 import { alertApiError } from '../../utils/apiError';
+import { useSelectOptions } from '../../hooks/useSelectOptions';
 
 const API_ORIGIN = 'http://localhost:8080';
 const resolveAssetUrl = (url?: string | null) => {
@@ -95,8 +96,6 @@ export function AssetsScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAssetId, setUploadingAssetId] = useState<number | null>(null);
 
@@ -108,27 +107,6 @@ export function AssetsScreen() {
 
   const [assetToEdit, setAssetToEdit] = useState<AssetToEdit | null>(null);
 
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchAssets = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/assets?size=1000');
-      setAssets(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar ativos patrimoniais:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAssets();
-  }, [fetchAssets]);
 
   const handleCreateNew = () => {
     setAssetToEdit(null);
@@ -158,7 +136,7 @@ export function AssetsScreen() {
     if (confirm('Deseja realmente inativar este bem patrimonial?')) {
       try {
         await api.delete(`/assets/${id}`);
-        fetchAssets();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar ativo.');
       }
@@ -192,7 +170,7 @@ export function AssetsScreen() {
 
     try {
       await api.post(`/assets/${uploadingAssetId}/photo`, formData);
-      await fetchAssets();
+      pagination.reload();
     } catch (error) {
       alertApiError(error, 'Erro ao enviar a foto. Tente novamente.');
     } finally {
@@ -231,36 +209,20 @@ export function AssetsScreen() {
     }
   };
 
-  // Filtragem
-  const filteredAssets = assets.filter((item) => {
-    const matchesSearch =
-      item.tagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.model && item.model.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.serialNumber && item.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()));
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-    const matchesStatus = statusFilter ? item.status === statusFilter : true;
-    const matchesLocation = locationFilter ? item.sector?.name === locationFilter : true;
-    const matchesCategory = categoryFilter ? String(item.category?.id) === categoryFilter : true;
+  // Paginação, busca e filtros feitos no backend
+  const pagination = useServerPagination<Asset>(
+    '/assets',
+    { q: debouncedSearch, status: statusFilter, sectorId: locationFilter, categoryId: categoryFilter },
+    { sort: 'name,asc' }
+  );
 
-    return matchesSearch && matchesStatus && matchesLocation && matchesCategory;
-  });
+  // Opções dos filtros vêm dos cadastros (o valor enviado ao backend é o id)
+  const locationOptions = useSelectOptions<{ id: number; name: string }>('/sectors', (s) => s.name);
+  const categoryOptions = useSelectOptions<{ id: number; name: string }>('/asset-categories', (c) => c.name);
 
-  const pagination = usePagination(filteredAssets);
-
-  const locationOptions = Array.from(
-    new Set(assets.map((a) => a.sector?.name).filter(Boolean))
-  ) as string[];
-
-  const categoryOptions = Array.from(
-    new Map(
-      assets
-        .filter((a) => a.category)
-        .map((a) => [String(a.category!.id), a.category!.name])
-    ).entries()
-  ).map(([value, label]) => ({ value, label }));
-
-  if (loading && assets.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -273,7 +235,7 @@ export function AssetsScreen() {
       <AssetModal
         opened={modalOpened}
         onClose={closeModal}
-        onSuccess={fetchAssets}
+        onSuccess={pagination.reload}
         assetToEdit={assetToEdit}
       />
 
@@ -360,8 +322,8 @@ export function AssetsScreen() {
           </Table.Thead>
 
           <Table.Tbody>
-            {filteredAssets.length > 0 ? (
-              pagination.pageItems.map((asset) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((asset) => (
                 <Table.Tr key={asset.id}>
                   {/* Foto */}
                   <Table.Td>
@@ -438,7 +400,7 @@ export function AssetsScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

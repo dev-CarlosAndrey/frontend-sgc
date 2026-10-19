@@ -39,13 +39,9 @@ export function ReportsScreen() {
       )
       .catch((err) => console.error('Erro ao buscar empresas:', err));
     api
-      .get('/users?size=1000')
+      .get('/users', { params: { role: 'TECHNICIAN', size: 1000, sort: 'name,asc' } })
       .then((res) =>
-        setTechnicians(
-          extractList(res)
-            .filter((u: { role: string }) => u.role === 'TECHNICIAN')
-            .map((u: { id: number; name: string }) => ({ value: String(u.id), label: u.name }))
-        )
+        setTechnicians(extractList(res).map((u: { id: number; name: string }) => ({ value: String(u.id), label: u.name })))
       )
       .catch((err) => console.error('Erro ao buscar técnicos:', err));
   }, [isAdmin]);

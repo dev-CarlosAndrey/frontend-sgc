@@ -12,10 +12,10 @@ import {
   Center,
   Text
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
-import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,28 +39,11 @@ export function BrandsScreen() {
 
   const [opened, { open, close }] = useDisclosure(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
   const [brandToEdit, setBrandToEdit] = useState<BrandToEdit | null>(null);
 
-  // Busca as marcas no backend Spring Boot
-  const fetchBrands = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/brands?size=1000');
-      // Trata retorno do Spring Data Pageable (content) ou List pura
-      const data = response.data.content ? response.data.content : response.data;
-      setBrands(data);
-    } catch (error) {
-      console.error('Erro ao buscar marcas:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchBrands();
-  }, [fetchBrands]);
+  // Paginação e busca feitas no backend
+  const pagination = useServerPagination<Brand>('/brands', { q: debouncedSearch }, { sort: 'name,asc' });
 
   const handleCreateNew = () => {
     setBrandToEdit(null);
@@ -76,19 +59,12 @@ export function BrandsScreen() {
     if (confirm('Deseja realmente inativar esta marca?')) {
       try {
         await api.delete(`/brands/${id}`);
-        fetchBrands();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar marca.');
       }
     }
   };
-
-  // Filtro em tempo de execução no frontend
-  const filteredBrands = brands.filter((brand) =>
-    brand.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const pagination = usePagination(filteredBrands);
 
   return (
     <Stack gap="lg">
@@ -97,7 +73,7 @@ export function BrandsScreen() {
         <BrandModal
           opened={opened}
           onClose={close}
-          onSuccess={fetchBrands}
+          onSuccess={pagination.reload}
           brandToEdit={brandToEdit}
         />
       )}
@@ -126,13 +102,13 @@ export function BrandsScreen() {
 
       {/* 3. TABELA DE CADASTRO DE MARCAS */}
       <Paper radius="md" withBorder style={{ overflow: 'hidden' }}>
-        {loading ? (
+        {pagination.initialLoading ? (
           <Center p="xl">
             <Loader size="md" />
           </Center>
         ) : (
           <>
-          <Table verticalSpacing="md" horizontalSpacing="xl" highlightOnHover>
+          <Table verticalSpacing="md" horizontalSpacing="xl" highlightOnHover style={{ opacity: pagination.loading ? 0.6 : 1 }}>
             <Table.Thead style={{ backgroundColor: '#f8f9fa' }}>
               <Table.Tr>
                 <Table.Th c="dimmed" fw={700} style={{ fontSize: '11px', letterSpacing: '0.5px' }}>ID</Table.Th>
@@ -145,8 +121,8 @@ export function BrandsScreen() {
             </Table.Thead>
 
             <Table.Tbody>
-              {filteredBrands.length > 0 ? (
-                pagination.pageItems.map((brand) => (
+              {pagination.items.length > 0 ? (
+                pagination.items.map((brand) => (
                   <Table.Tr key={brand.id}>
                     {/* Formatação ID BRD-001 conforme seu padrão visual */}
                     <Table.Td c="gray.5" fw={500} style={{ fontSize: '13px' }}>
@@ -196,7 +172,7 @@ export function BrandsScreen() {
             </Table.Tbody>
           </Table>
 
-          <TablePagination {...pagination} />
+          <TablePagination {...pagination} disabled={pagination.loading} />
           </>
         )}
       </Paper>

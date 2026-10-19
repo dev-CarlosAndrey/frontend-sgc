@@ -13,7 +13,7 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { 
   IconPlus, 
   IconSearch, 
@@ -22,7 +22,7 @@ import {
   IconTrash 
 } from '@tabler/icons-react';
 import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -74,10 +74,8 @@ export function EmployeesScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [sectors, setSectors] = useState<SectorOption[]>([]);
-  const [loading, setLoading] = useState(true);
   const [employeeToEdit, setEmployeeToEdit] = useState<EmployeeToEdit | null>(null);
 
   // Filtros
@@ -92,37 +90,24 @@ export function EmployeesScreen() {
     return [];
   };
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
+  // Empresas e setores: usados pelo modal de cadastro e pelo filtro de setor
+  const fetchOptions = useCallback(async () => {
+    const [companiesRes, sectorsRes] = await Promise.allSettled([
+      api.get('/companies?size=1000'),
+      api.get('/sectors?size=1000&sort=name,asc'),
+    ]);
 
-      const [employeesRes, companiesRes, sectorsRes] = await Promise.allSettled([
-        api.get('/employees?size=1000'),
-        api.get('/companies?size=1000'),
-        api.get('/sectors?size=1000'),
-      ]);
-
-      if (employeesRes.status === 'fulfilled') {
-        setEmployees(extractData(employeesRes.value));
-      }
-
-      if (companiesRes.status === 'fulfilled') {
-        setCompanies(extractData(companiesRes.value));
-      }
-
-      if (sectorsRes.status === 'fulfilled') {
-        setSectors(extractData(sectorsRes.value));
-      }
-    } catch (error) {
-      console.error('Erro ao buscar dados de funcionários:', error);
-    } finally {
-      setLoading(false);
+    if (companiesRes.status === 'fulfilled') {
+      setCompanies(extractData(companiesRes.value));
+    }
+    if (sectorsRes.status === 'fulfilled') {
+      setSectors(extractData(sectorsRes.value));
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchOptions();
+  }, [fetchOptions]);
 
   const handleCreateNew = () => {
     setEmployeeToEdit(null);
@@ -149,7 +134,7 @@ export function EmployeesScreen() {
     if (confirm('Deseja realmente inativar este funcionário?')) {
       try {
         await api.delete(`/employees/${id}`);
-        fetchData();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar funcionário.');
       }
@@ -172,26 +157,24 @@ export function EmployeesScreen() {
 
   const AVATAR_COLORS = ['blue', 'teal', 'orange', 'violet', 'red', 'indigo', 'cyan'];
 
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.cpf.includes(searchQuery) ||
-      emp.registrationNumber.toLowerCase().includes(searchQuery.toLowerCase());
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-    const matchesDept = departmentFilter ? emp.sectorName === departmentFilter : true;
-    const matchesStatus =
-      statusFilter === 'Active' ? emp.active : statusFilter === 'Inactive' ? !emp.active : true;
+  // Paginação, busca e filtros feitos no backend. Sem filtro de status,
+  // o backend lista ativos e inativos.
+  const pagination = useServerPagination<Employee>(
+    '/employees',
+    {
+      q: debouncedSearch,
+      sectorId: departmentFilter,
+      active: statusFilter === 'Active' ? true : statusFilter === 'Inactive' ? false : null,
+    },
+    { sort: 'name,asc' }
+  );
 
-    return matchesSearch && matchesDept && matchesStatus;
-  });
+  // O filtro envia o id do setor
+  const sectorOptions = sectors.map((s) => ({ value: String(s.id), label: s.name }));
 
-  const pagination = usePagination(filteredEmployees);
-
-  const sectorOptions = Array.from(
-    new Set(employees.map((e) => e.sectorName).filter(Boolean))
-  ) as string[];
-
-  if (loading && employees.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -205,7 +188,7 @@ export function EmployeesScreen() {
         <EmployeeModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchData}
+          onSuccess={pagination.reload}
           companies={companies}
           sectors={sectors}
           employeeToEdit={employeeToEdit}
@@ -278,8 +261,8 @@ export function EmployeesScreen() {
           </Table.Thead>
           
           <Table.Tbody>
-            {filteredEmployees.length > 0 ? (
-              pagination.pageItems.map((employee, index) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((employee, index) => (
                 <Table.Tr key={employee.id}>
                   <Table.Td>
                     <Avatar 
@@ -354,7 +337,7 @@ export function EmployeesScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

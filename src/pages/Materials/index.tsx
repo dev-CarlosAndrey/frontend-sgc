@@ -11,15 +11,15 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { 
   IconPlus, 
   IconSearch, 
   IconEdit, 
   IconTrash 
 } from '@tabler/icons-react';
-import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -45,33 +45,9 @@ export function MaterialsScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [materialToEdit, setMaterialToEdit] = useState<MaterialToEdit | null>(null);
 
-  // Normalizador auxiliar para tratar respostas do Spring Boot (Array simples ou PageImpl)
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchMaterials = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/materials?size=1000');
-      setMaterials(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar materiais:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMaterials();
-  }, [fetchMaterials]);
 
   const handleCreateNew = () => {
     setMaterialToEdit(null);
@@ -91,7 +67,7 @@ export function MaterialsScreen() {
     if (confirm('Deseja realmente inativar este material?')) {
       try {
         await api.delete(`/materials/${id}`);
-        fetchMaterials();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar material.');
       }
@@ -103,15 +79,12 @@ export function MaterialsScreen() {
     return `MAT-${String(id).padStart(3, '0')}`;
   };
 
-  const filteredMaterials = materials.filter((m) =>
-    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    formatCode(m.id).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-  const pagination = usePagination(filteredMaterials);
+  // Paginação e busca feitas no backend
+  const pagination = useServerPagination<Material>('/materials', { q: debouncedSearch }, { sort: 'name,asc' });
 
-  if (loading && materials.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -125,7 +98,7 @@ export function MaterialsScreen() {
         <MaterialModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchMaterials}
+          onSuccess={pagination.reload}
           materialToEdit={materialToEdit}
         />
       )}
@@ -173,8 +146,8 @@ export function MaterialsScreen() {
           </Table.Thead>
           
           <Table.Tbody>
-            {filteredMaterials.length > 0 ? (
-              pagination.pageItems.map((material) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((material) => (
                 <Table.Tr key={material.id}>
                   {/* Código Formatado MAT-00X */}
                   <Table.Td c="dimmed" fw={500} style={{ fontSize: '13px' }}>
@@ -231,7 +204,7 @@ export function MaterialsScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

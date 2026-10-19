@@ -1,5 +1,5 @@
 import { Group, Pagination, Select, Text } from '@mantine/core';
-import { PAGE_SIZE_OPTIONS } from '../../hooks/usePagination';
+import { PAGE_SIZE_OPTIONS } from '../../hooks/useServerPagination';
 
 interface TablePaginationProps {
   page: number;

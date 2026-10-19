@@ -33,11 +33,12 @@ Não há test runner configurado neste projeto.
 **Layout (`src/components/Layout/index.tsx`):** `AppShell` do Mantine com sidebar fixa. Os itens de navegação são `NavLink`s escritos manualmente (sem configuração orientada a dados), comparados contra `location.pathname`; telas relacionadas são agrupadas em `NavLink`s pai colapsáveis (ex.: "Estrutura Física" agrupa `/company`, `/physical-structure`, `/sectors`; "Catálogo e Bens" agrupa `/assets`, `/products`, `/brands`, `/materials`). Siga o mesmo padrão (uma constante `isXActive` com lista de paths + `defaultOpened`) ao adicionar uma nova seção agrupada.
 
 **Convenção de módulo de página:** Cada funcionalidade vive em `src/pages/<Name>/`:
-- `index.tsx` exporta `<Name>Screen`, mantém o estado da lista (`useState`/`useEffect`/`useCallback`), busca dados via `api` diretamente, faz busca/filtro client-side sobre a lista carregada, e renderiza uma `Table` do Mantine com `Badge`s de status e `ActionIcon`s por linha (editar/excluir/visualizar).
+- `index.tsx` exporta `<Name>Screen` e carrega a listagem com `useServerPagination(path, filtros, { sort })` (`src/hooks/useServerPagination.ts`): paginação, busca (`q`, com `useDebouncedValue` de 300 ms) e filtros são feitos **no backend**; não filtre a lista no navegador. Use `pagination.reload()` depois de criar/editar/excluir. Opções de Select de filtro vêm dos cadastros via `useSelectOptions` (o filtro envia o id). Renderiza uma `Table` do Mantine com `Badge`s de status, `ActionIcon`s por linha e `TablePagination` no rodapé.
 - `components/<Name>Modal.tsx` (quando existe) é um `Modal` do Mantine + `@mantine/form` (`useForm`) para criação/edição, que busca suas próprias opções de dropdown (ex.: setores, produtos) ao abrir, e chama `POST`/`PUT` no submit, retornando via callbacks `onSuccess`/`onClose` para a tela de listagem.
 - Tipos de domínio (ex.: `Asset`, `AssetToEdit`) são definidos localmente no arquivo da página/modal, sem compartilhamento — não há um modelo de domínio central em `src/types` além de auth.
-- As respostas da API são tratadas defensivamente: `extractData(response)` verifica se é um array puro ou uma página no estilo Spring (`{ content: [...] }`) antes de retornar `[]` como fallback. Reutilize esse padrão em novas telas de listagem.
+- Listas de apoio (opções de dropdown nos modais) ainda usam `extractData(response)`, que aceita array puro ou página Spring (`{ content: [...] }`) e cai para `[]`.
+- Erros da API: use `showFormApiError` (formulários) ou `alertApiError` (ações) de `src/utils/apiError.ts`, que leem o `ProblemDetail` (`detail` e `errors`).
 
 **Convenção de idioma:** Textos de UI e comentários estão em português; nomes de componentes/variáveis/tipos e caminhos de arquivo estão em inglês (explicitado em `src/routes/index.tsx`: "Padrão: Código em Inglês").
 
-**Diretórios vazios/scaffolded:** `src/config/` e `src/utils/` existem mas estão vazios atualmente — verifique antes de assumir que há configuração ou utilitários compartilhados.
+**Diretórios vazios/scaffolded:** `src/config/` existe mas está vazio atualmente.

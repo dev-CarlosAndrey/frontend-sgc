@@ -11,15 +11,15 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { 
   IconPlus, 
   IconSearch, 
   IconEdit, 
   IconTrash 
 } from '@tabler/icons-react';
-import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -54,32 +54,9 @@ export function SectorsScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [sectors, setSectors] = useState<SectorResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorToEdit, setSectorToEdit] = useState<SectorToEdit | null>(null);
 
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchSectors = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/sectors?size=1000');
-      setSectors(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar setores:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSectors();
-  }, [fetchSectors]);
 
   const handleCreateNew = () => {
     setSectorToEdit(null);
@@ -100,7 +77,7 @@ export function SectorsScreen() {
     if (confirm('Deseja realmente inativar este setor?')) {
       try {
         await api.delete(`/sectors/${id}`);
-        fetchSectors();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar setor.');
       }
@@ -109,16 +86,12 @@ export function SectorsScreen() {
 
   const formatCode = (id: number) => `SET-${String(id).padStart(3, '0')}`;
 
-  const filteredSectors = sectors.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.managerName && s.managerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (s.building?.name && s.building.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    formatCode(s.id).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-  const pagination = usePagination(filteredSectors);
+  // Paginação e busca feitas no backend
+  const pagination = useServerPagination<SectorResponse>('/sectors', { q: debouncedSearch }, { sort: 'name,asc' });
 
-  if (loading && sectors.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -132,7 +105,7 @@ export function SectorsScreen() {
         <SectorModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchSectors}
+          onSuccess={pagination.reload}
           sectorToEdit={sectorToEdit}
         />
       )}
@@ -178,8 +151,8 @@ export function SectorsScreen() {
           </Table.Thead>
 
           <Table.Tbody>
-            {filteredSectors.length > 0 ? (
-              pagination.pageItems.map((sector) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((sector) => (
                 <Table.Tr key={sector.id}>
                   <Table.Td c="dimmed" fw={500} style={{ fontSize: '13px' }}>
                     {formatCode(sector.id)}
@@ -235,7 +208,7 @@ export function SectorsScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

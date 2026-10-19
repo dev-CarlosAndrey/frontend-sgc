@@ -12,14 +12,14 @@ import {
   Loader,
   Center,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import { IconPlus, IconSearch, IconArrowRight } from "@tabler/icons-react";
-import { useState, useEffect, useCallback } from "react";
-import { usePagination } from "../../hooks/usePagination";
+import { useState } from "react";
+import { useServerPagination } from "../../hooks/useServerPagination";
 import { TablePagination } from "../../components/TablePagination";
-import { api } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import { MovementModal } from "./components/MovementModal";
+import { useSelectOptions } from "../../hooks/useSelectOptions";
 
 interface MovementResponse {
   id: number;
@@ -39,34 +39,11 @@ export function MovementsScreen() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [movements, setMovements] = useState<MovementResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   
   // Filtros
   const [searchQuery, setSearchQuery] = useState("");
   const [destinationFilter, setDestinationFilter] = useState<string | null>(null);
 
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchMovements = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get("/asset-movements?size=1000");
-      setMovements(extractData(response));
-    } catch (error) {
-      console.error("Erro ao buscar histórico de movimentações:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMovements();
-  }, [fetchMovements]);
 
   // Formata data e hora
   const formatDateTime = (isoDate: string) => {
@@ -78,28 +55,19 @@ export function MovementsScreen() {
     };
   };
 
-  // Filtragem
-  const filteredMovements = movements.filter((m) => {
-    const matchesSearch =
-      m.assetTagNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.assetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.originSectorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.destinationSectorName.toLowerCase().includes(searchQuery.toLowerCase());
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-    const matchesDestination = destinationFilter
-      ? m.destinationSectorName === destinationFilter
-      : true;
+  // Paginação, busca e filtros feitos no backend
+  const pagination = useServerPagination<MovementResponse>(
+    "/asset-movements",
+    { q: debouncedSearch, destinationSectorId: destinationFilter },
+    { sort: "movementDate,desc" }
+  );
 
-    return matchesSearch && matchesDestination;
-  });
+  // Opções do filtro vêm do cadastro de setores (o valor enviado ao backend é o id)
+  const destinationOptions = useSelectOptions<{ id: number; name: string }>("/sectors", (s) => s.name);
 
-  const pagination = usePagination(filteredMovements);
-
-  const destinationOptions = Array.from(
-    new Set(movements.map((m) => m.destinationSectorName).filter(Boolean))
-  ) as string[];
-
-  if (loading && movements.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: "60vh" }}>
         <Loader size="lg" />
@@ -113,7 +81,7 @@ export function MovementsScreen() {
         <MovementModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchMovements}
+          onSuccess={pagination.reload}
         />
       )}
 
@@ -181,8 +149,8 @@ export function MovementsScreen() {
           </Table.Thead>
 
           <Table.Tbody>
-            {filteredMovements.length > 0 ? (
-              pagination.pageItems.map((movement) => {
+            {pagination.items.length > 0 ? (
+              pagination.items.map((movement) => {
                 const { date, time } = formatDateTime(movement.movementDate);
                 return (
                   <Table.Tr key={movement.id}>
@@ -259,7 +227,7 @@ export function MovementsScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );

@@ -12,15 +12,15 @@ import {
   Loader,
   Center
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import {
   IconPlus,
   IconSearch,
   IconEdit,
   IconTrash
 } from '@tabler/icons-react';
-import { useState, useEffect, useCallback } from 'react';
-import { usePagination } from '../../hooks/usePagination';
+import { useState } from 'react';
+import { useServerPagination } from '../../hooks/useServerPagination';
 import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -64,33 +64,10 @@ export function UsersScreen() {
   const isAdmin = loggedUser?.role === 'ADMIN';
 
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [userToEdit, setUserToEdit] = useState<UserToEdit | null>(null);
 
-  const extractData = (response: any) => {
-    if (Array.isArray(response.data)) return response.data;
-    if (response.data?.content && Array.isArray(response.data.content)) return response.data.content;
-    return [];
-  };
-
-  const fetchUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/users?size=1000');
-      setUsers(extractData(response));
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
 
   const handleCreateNew = () => {
     setUserToEdit(null);
@@ -112,24 +89,23 @@ export function UsersScreen() {
     if (confirm('Deseja realmente inativar este usuário?')) {
       try {
         await api.delete(`/users/${id}`);
-        fetchUsers();
+        pagination.reload();
       } catch (error) {
         alertApiError(error, 'Erro ao inativar usuário.');
       }
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter ? u.role === roleFilter : true;
-    return matchesSearch && matchesRole;
-  });
+  const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
-  const pagination = usePagination(filteredUsers);
+  // Paginação, busca e filtros feitos no backend
+  const pagination = useServerPagination<UserRow>(
+    '/users',
+    { q: debouncedSearch, role: roleFilter },
+    { sort: 'name,asc' }
+  );
 
-  if (loading && users.length === 0) {
+  if (pagination.initialLoading) {
     return (
       <Center style={{ height: '60vh' }}>
         <Loader size="lg" />
@@ -143,7 +119,7 @@ export function UsersScreen() {
         <UserModal
           opened={modalOpened}
           onClose={closeModal}
-          onSuccess={fetchUsers}
+          onSuccess={pagination.reload}
           userToEdit={userToEdit}
         />
       )}
@@ -202,8 +178,8 @@ export function UsersScreen() {
           </Table.Thead>
 
           <Table.Tbody>
-            {filteredUsers.length > 0 ? (
-              pagination.pageItems.map((u) => (
+            {pagination.items.length > 0 ? (
+              pagination.items.map((u) => (
                 <Table.Tr key={u.id}>
                   <Table.Td fw={700} c="gray.8" style={{ fontSize: '14px' }}>
                     {u.name}
@@ -256,7 +232,7 @@ export function UsersScreen() {
           </Table.Tbody>
         </Table>
 
-        <TablePagination {...pagination} />
+        <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
     </Stack>
   );
