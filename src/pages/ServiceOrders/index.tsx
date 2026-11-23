@@ -16,6 +16,8 @@ import {
   NumberInput,
   Loader,
   Center,
+  Modal,
+  Divider,
 } from '@mantine/core';
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import {
@@ -122,7 +124,7 @@ export function ServiceOrdersScreen() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [channelFilter, setChannelFilter] = useState<string | null>(null);
 
-  // A OS selecionada fica em estado próprio: continua aberta no painel mesmo trocando de página
+  // A OS selecionada é exibida no modal de detalhes (aberto pelo olho ou clicando na linha)
   const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
   const selectedOrderId = selectedOrder?.id ?? null;
   const [technicianToAssign, setTechnicianToAssign] = useState<string | null>(null);
@@ -193,7 +195,7 @@ export function ServiceOrdersScreen() {
   const statusHistory = history && history.orderId === selectedOrderId ? history.entries : [];
 
   const handleSelectOrder = (order: ServiceOrder) => {
-    setSelectedOrder(order.id === selectedOrderId ? null : order);
+    setSelectedOrder(order);
   };
 
   const handleDelete = async (id: number) => {
@@ -393,9 +395,17 @@ export function ServiceOrdersScreen() {
         <TablePagination {...pagination} disabled={pagination.loading} />
       </Paper>
 
-      {/* 4. SEÇÃO DE DETALHAMENTO DA OS SELECIONADA */}
+      {/* 4. MODAL DE DETALHAMENTO DA OS SELECIONADA */}
+      <Modal
+        opened={selectedOrder !== null}
+        onClose={() => setSelectedOrder(null)}
+        title={<Text fw={700} size="lg">{selectedOrder ? `OS #${selectedOrder.id} — ${selectedOrder.title}` : ''}</Text>}
+        size="xl"
+        radius="md"
+        centered
+      >
       {selectedOrder && (
-        <Paper p="xl" radius="md" withBorder>
+        <>
           <Grid columns={12} gap="xl">
             {/* Coluna Esquerda: Informações do Chamado */}
             <Grid.Col span={{ base: 12, md: 6 }}>
@@ -448,9 +458,27 @@ export function ServiceOrdersScreen() {
                 <div>
                   <Text fw={700} size="md" mb="xs" mt="xs">Descrição do Problema</Text>
                   <Paper p="sm" withBorder radius="sm" bg="#fafafa">
-                    <Text size="sm" style={{ lineHeight: 1.5 }}>{selectedOrder.description}</Text>
+                    <Text size="sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{selectedOrder.description}</Text>
                   </Paper>
                 </div>
+
+                {/* Quem não pode resolver só visualiza a solução registrada */}
+                {!canResolve && (
+                  <div>
+                    <Text fw={700} size="md" mb="xs" mt="xs">Técnico e Solução</Text>
+                    <Group gap="xs" mt={4}><Text size="sm" c="dimmed" w={110}>Técnico:</Text><Text size="sm" fw={500}>{selectedOrder.technician?.name || 'Não atribuído'}</Text></Group>
+                    {selectedOrder.solutionDetails && (
+                      <Paper p="sm" mt="xs" withBorder radius="sm" bg="#fafafa">
+                        <Text size="sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{selectedOrder.solutionDetails}</Text>
+                      </Paper>
+                    )}
+                    {selectedOrder.closedAt && (
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Finalizada em {new Date(selectedOrder.closedAt).toLocaleString('pt-BR')}
+                      </Text>
+                    )}
+                  </div>
+                )}
               </Stack>
             </Grid.Col>
 
@@ -550,7 +578,8 @@ export function ServiceOrdersScreen() {
           </Grid>
 
           <div>
-            <Text fw={700} size="md" mt="xl" mb="sm">Histórico de Status</Text>
+            <Divider my="lg" />
+            <Text fw={700} size="md" mb="sm">Histórico de Status</Text>
             {statusHistory.length > 0 ? (
               <Stack gap="xs">
                 {statusHistory.map((entry) => (
@@ -582,8 +611,9 @@ export function ServiceOrdersScreen() {
               <Text size="sm" c="dimmed">Nenhuma alteração de status registrada para esta OS.</Text>
             )}
           </div>
-        </Paper>
+        </>
       )}
+      </Modal>
     </Stack>
   );
 }

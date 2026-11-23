@@ -27,6 +27,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { EmployeeModal } from './components/EmployeeModal';
+import { EmployeeDetailsModal } from './components/EmployeeDetailsModal';
 import { alertApiError } from '../../utils/apiError';
 
 interface Employee {
@@ -43,6 +44,7 @@ interface Employee {
   companyName?: string;
   sectorId?: number;
   sectorName?: string;
+  createdAt?: string;
 }
 
 interface CompanyOption {
@@ -77,6 +79,7 @@ export function EmployeesScreen() {
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [sectors, setSectors] = useState<SectorOption[]>([]);
   const [employeeToEdit, setEmployeeToEdit] = useState<EmployeeToEdit | null>(null);
+  const [employeeToView, setEmployeeToView] = useState<Employee | null>(null);
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -195,6 +198,8 @@ export function EmployeesScreen() {
         />
       )}
 
+      <EmployeeDetailsModal employee={employeeToView} onClose={() => setEmployeeToView(null)} />
+
       {/* 1. CABEÇALHO */}
       <Group justify="space-between" align="center">
         <Title order={2} fw={700}>Gestão de Funcionários</Title>
@@ -254,9 +259,7 @@ export function EmployeesScreen() {
               <Table.Th c="dimmed" fw={700} style={{ fontSize: '11px', letterSpacing: '0.5px' }}>CARGO</Table.Th>
               <Table.Th c="dimmed" fw={700} style={{ fontSize: '11px', letterSpacing: '0.5px' }}>DATA DE ADMISSÃO</Table.Th>
               <Table.Th c="dimmed" fw={700} style={{ fontSize: '11px', letterSpacing: '0.5px' }}>STATUS</Table.Th>
-              {isAdmin && (
-                <Table.Th c="dimmed" fw={700} style={{ fontSize: '11px', letterSpacing: '0.5px', textAlign: 'center' }}>AÇÕES</Table.Th>
-              )}
+              <Table.Th c="dimmed" fw={700} style={{ fontSize: '11px', letterSpacing: '0.5px', textAlign: 'center' }}>AÇÕES</Table.Th>
             </Table.Tr>
           </Table.Thead>
           
@@ -308,26 +311,28 @@ export function EmployeesScreen() {
                     )}
                   </Table.Td>
 
-                  {isAdmin && (
-                    <Table.Td>
-                      <Group gap="xs" justify="center" wrap="nowrap">
-                        <ActionIcon variant="subtle" color="gray.6" size="sm">
-                          <IconEye size={16} />
-                        </ActionIcon>
-                        <ActionIcon variant="subtle" color="gray.6" size="sm" onClick={() => handleEdit(employee)}>
-                          <IconEdit size={16} />
-                        </ActionIcon>
-                        <ActionIcon variant="subtle" color="red.6" size="sm" onClick={() => handleDelete(employee.id)}>
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Group>
-                    </Table.Td>
-                  )}
+                  <Table.Td>
+                    <Group gap="xs" justify="center" wrap="nowrap">
+                      <ActionIcon variant="subtle" color="gray.6" size="sm" title="Visualizar" onClick={() => setEmployeeToView(employee)}>
+                        <IconEye size={16} />
+                      </ActionIcon>
+                      {isAdmin && (
+                        <>
+                          <ActionIcon variant="subtle" color="gray.6" size="sm" title="Editar" onClick={() => handleEdit(employee)}>
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                          <ActionIcon variant="subtle" color="red.6" size="sm" title="Inativar" onClick={() => handleDelete(employee.id)}>
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </>
+                      )}
+                    </Group>
+                  </Table.Td>
                 </Table.Tr>
               ))
             ) : (
               <Table.Tr>
-                <Table.Td colSpan={isAdmin ? 8 : 7} style={{ textAlign: 'center', padding: '24px' }}>
+                <Table.Td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>
                   <Badge variant="subtle" color="gray" size="lg">
                     Nenhum funcionário encontrado.
                   </Badge>

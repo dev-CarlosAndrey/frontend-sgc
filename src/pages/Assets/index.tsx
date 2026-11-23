@@ -29,6 +29,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { AssetModal } from './components/AssetModal';
+import { AssetDetailsModal } from './components/AssetDetailsModal';
 import { alertApiError } from '../../utils/apiError';
 import { useSelectOptions } from '../../hooks/useSelectOptions';
 
@@ -106,6 +107,7 @@ export function AssetsScreen() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const [assetToEdit, setAssetToEdit] = useState<AssetToEdit | null>(null);
+  const [assetToView, setAssetToView] = useState<Asset | null>(null);
 
 
   const handleCreateNew = () => {
@@ -239,6 +241,12 @@ export function AssetsScreen() {
         assetToEdit={assetToEdit}
       />
 
+      <AssetDetailsModal
+        asset={assetToView}
+        photoSrc={resolveAssetUrl(assetToView?.photoUrl)}
+        onClose={() => setAssetToView(null)}
+      />
+
       {/* Input de arquivo oculto para upload de foto */}
       <input
         ref={photoInputRef}
@@ -368,7 +376,7 @@ export function AssetsScreen() {
                       <ActionIcon variant="subtle" color="gray.6" size="sm" title="Etiqueta QR Code">
                         <IconQrcode size={16} />
                       </ActionIcon>
-                      <ActionIcon variant="subtle" color="gray.6" size="sm" title="Visualizar">
+                      <ActionIcon variant="subtle" color="gray.6" size="sm" title="Visualizar" onClick={() => setAssetToView(asset)}>
                         <IconEye size={16} />
                       </ActionIcon>
                       {isAdmin && (
