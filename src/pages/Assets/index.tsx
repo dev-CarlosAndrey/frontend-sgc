@@ -184,10 +184,15 @@ export function AssetsScreen() {
   const renderStatusBadge = (status: Asset['status']) => {
     switch (status) {
       case 'AVAILABLE':
-      case 'IN_USE':
         return (
           <Badge variant="light" color="green" radius="md" size="md" px="xs" style={{ textTransform: 'none', fontWeight: 600 }}>
             Disponível
+          </Badge>
+        );
+      case 'IN_USE':
+        return (
+          <Badge variant="light" color="blue" radius="md" size="md" px="xs" style={{ textTransform: 'none', fontWeight: 600 }}>
+            Em Uso
           </Badge>
         );
       case 'IN_MAINTENANCE':
