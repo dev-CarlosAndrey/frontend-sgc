@@ -38,6 +38,7 @@ interface ServiceOrderModalProps {
 
 export function ServiceOrderModal({ opened, onClose, onSuccess }: ServiceOrderModalProps) {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [sectors, setSectors] = useState<SectorOption[]>([]);
@@ -51,18 +52,19 @@ export function ServiceOrderModal({ opened, onClose, onSuccess }: ServiceOrderMo
 
   const fetchOptions = useCallback(async () => {
     try {
+      // /users é restrito ao ADMIN; os demais perfis abrem a OS em nome próprio.
       const [usersRes, sectorsRes, assetsRes] = await Promise.all([
-        api.get('/users?size=1000'),
+        isAdmin ? api.get('/users?size=1000') : Promise.resolve(null),
         api.get('/sectors?size=1000'),
         api.get('/assets?size=1000'),
       ]);
-      setUsers(extractData(usersRes));
+      setUsers(usersRes ? extractData(usersRes) : user ? [{ id: user.userId, name: user.name, role: user.role }] : []);
       setSectors(extractData(sectorsRes));
       setAssets(extractData(assetsRes));
     } catch (error) {
       console.error('Erro ao carregar opções para o modal de ordem de serviço:', error);
     }
-  }, []);
+  }, [isAdmin, user]);
 
   const form = useForm({
     initialValues: {
@@ -180,6 +182,7 @@ export function ServiceOrderModal({ opened, onClose, onSuccess }: ServiceOrderMo
               data={userSelectData}
               searchable
               required
+              disabled={!isAdmin}
               {...form.getInputProps('requesterId')}
             />
             <Select

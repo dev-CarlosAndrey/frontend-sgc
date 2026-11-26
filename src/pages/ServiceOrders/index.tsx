@@ -149,8 +149,9 @@ export function ServiceOrdersScreen() {
   }, []);
 
   useEffect(() => {
-    fetchTechnicians();
-  }, [fetchTechnicians]);
+    // Lista de técnicos (para atribuição) vem de /users, restrito ao ADMIN.
+    if (isAdmin) fetchTechnicians();
+  }, [fetchTechnicians, isAdmin]);
 
   const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
