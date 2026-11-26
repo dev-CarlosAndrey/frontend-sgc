@@ -118,16 +118,18 @@ export function AppLayout() {
             />
           </NavLink>
 
-          {/* 3. FUNCIONÁRIOS */}
-          <NavLink
-            label="Funcionários"
-            styles={{ label: { fontSize: '14px', fontWeight: 500 } }}
-            leftSection={<IconUsers size={18} stroke={1.5} />}
-            active={location.pathname === '/employees'}
-            onClick={() => navigate('/employees')}
-            style={compactNavLinkStyles}
-            mt={3}
-          />
+          {/* 3. FUNCIONÁRIOS (somente ADMIN: dados pessoais, LGPD) */}
+          {isAdmin && (
+            <NavLink
+              label="Funcionários"
+              styles={{ label: { fontSize: '14px', fontWeight: 500 } }}
+              leftSection={<IconUsers size={18} stroke={1.5} />}
+              active={location.pathname === '/employees'}
+              onClick={() => navigate('/employees')}
+              style={compactNavLinkStyles}
+              mt={3}
+            />
+          )}
 
           {/* 4. CATÁLOGO E PATRIMÔNIO (GRUPO) */}
           <NavLink
@@ -221,27 +223,31 @@ export function AppLayout() {
             />
           )}
 
-          {/* 8. USUÁRIOS (leitura para qualquer autenticado, escrita ADMIN) */}
-          <NavLink
-            label="Usuários"
-            styles={{ label: { fontSize: '14px', fontWeight: 500 } }}
-            leftSection={<IconUserCog size={18} stroke={1.5} />}
-            active={location.pathname === '/users'}
-            onClick={() => navigate('/users')}
-            style={compactNavLinkStyles}
-            mt={3}
-          />
+          {/* 8. USUÁRIOS (somente ADMIN: dados pessoais, LGPD) */}
+          {isAdmin && (
+            <NavLink
+              label="Usuários"
+              styles={{ label: { fontSize: '14px', fontWeight: 500 } }}
+              leftSection={<IconUserCog size={18} stroke={1.5} />}
+              active={location.pathname === '/users'}
+              onClick={() => navigate('/users')}
+              style={compactNavLinkStyles}
+              mt={3}
+            />
+          )}
 
-          {/* 9. AUDITORIA (somente leitura) */}
-          <NavLink
-            label="Auditoria"
-            styles={{ label: { fontSize: '14px', fontWeight: 500 } }}
-            leftSection={<IconHistory size={18} stroke={1.5} />}
-            active={location.pathname === '/audit-logs'}
-            onClick={() => navigate('/audit-logs')}
-            style={compactNavLinkStyles}
-            mt={3}
-          />
+          {/* 9. AUDITORIA (somente ADMIN, RF34) */}
+          {isAdmin && (
+            <NavLink
+              label="Auditoria"
+              styles={{ label: { fontSize: '14px', fontWeight: 500 } }}
+              leftSection={<IconHistory size={18} stroke={1.5} />}
+              active={location.pathname === '/audit-logs'}
+              onClick={() => navigate('/audit-logs')}
+              style={compactNavLinkStyles}
+              mt={3}
+            />
+          )}
 
         </AppShell.Section>
 
